@@ -1,0 +1,403 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <title>Kugelwolkenmodell 3D Viewport</title>
+    <style>
+        body { margin: 0; overflow: hidden; background-color: #1a1a1a; color: white; font-family: sans-serif; }
+        #ui-layer { position: absolute; top: 10px; left: 10px; z-index: 10; background: rgba(0,0,0,0.8); padding: 15px; border-radius: 8px; }
+        button { background: #2980b9; color: white; border: none; padding: 10px 15px; border-radius: 4px; cursor: pointer; font-weight: bold;}
+        button:hover { background: #3498db; }
+    </style>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+</head>
+<body>
+
+  
+
+    
+
+    <div id="ui-layer">
+        <h2>KWM Interaktiver Viewport</h2>
+        <p>Server-Status: <span id="server-status">Verbinde...</span></p>
+        <p style="font-size: 0.9em; color: #f1c40f;" id="auswahl-status">Auswahl leer</p>
+        
+        <button id="btn-binden" style="background: #2ecc71; margin-bottom: 5px;">Auswahl verbinden (SVD)</button>
+        <button id="btn-reset" style="background: #e74c3c;">Simulation zurücksetzen</button>
+    </div>
+
+    <script>
+        // ========================================================
+        // CONFIG: HIER DEINE API-URL EINTRAGEN
+        // ========================================================
+        const API_URL = 'https://79e4-34-132-190-178.ngrok-free.app'; // Oder deine https://...ngrok-free.app
+
+        // ========================================================
+        // 1. THREE.JS INITIALISIERUNG (DIE BÜHNE)
+        // ========================================================
+        const scene = new THREE.Scene();
+        const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+        const renderer = new THREE.WebGLRenderer({ antialias: true });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        document.body.appendChild(renderer.domElement);
+
+        // Kamera-Steuerung mit der Maus
+        const controls = new THREE.OrbitControls(camera, renderer.domElement);
+        camera.position.set(0, 3, 7);
+        controls.update();
+
+        // Lichtquellen hinzufügen
+        const ambientLight = new THREE.AmbientLight(0xffffff, 0.4);
+        scene.add(ambientLight);
+        const dirLight = new THREE.DirectionalLight(0xffffff, 0.8);
+        dirLight.position.set(5, 10, 7);
+        scene.add(dirLight);
+
+        // Speicher für die 3D-Objekte der Atome, um sie später zu bewegen
+        const atomMeshes = {};
+
+        // Für Meilenstein 2: Maussteuerung
+        const anklickbareWolken = []; // Hier merken wir uns, welche Kugeln reaktiv sind
+        let ersteAusgewaehlteWolke = null; // Speichert den ersten Klick
+
+        const raycaster = new THREE.Raycaster(); // Der unsichtbare Laserstrahl
+        const mouse = new THREE.Vector2();      // Die 2D-Mausposition (-1 bis +1)
+
+        // ========================================================
+        // 2. RENDERING LOGIK (AUS DATEN WERDEN KÖRPER)
+        // ========================================================
+        function aktualisiere3DSzene(daten) {
+            // 1. Klick-Liste bei jedem Server-Update radikal leeren
+            anklickbareWolken.length = 0; 
+            
+            for (const uid in daten) {
+                const atomDaten = daten[uid];
+                
+                // Erstmalige Erstellung (falls das Atom noch nicht in der 3D-Szene existiert)
+                if (!atomMeshes[uid]) {
+                    const atomGruppe = new THREE.Group();
+                    
+                    // Kern-Größe und Farbe je nach Element
+                    let kernFarbe = 0xe74c3c; 
+                    let kernRadius = 0.3;     
+                    if (atomDaten.symbol === "H") {
+                        kernFarbe = 0xffffff; 
+                        kernRadius = 0.18;    
+                    }
+
+                    const kernGeo = new THREE.SphereGeometry(kernRadius, 32, 32);
+                    const kernMat = new THREE.MeshStandardMaterial({ 
+                        color: kernFarbe, 
+                        roughness: 0.3,
+                        transparent: atomDaten.symbol === "H",
+                        opacity: atomDaten.symbol === "H" ? 0.5 : 1.0 
+                    });
+                    atomGruppe.add(new THREE.Mesh(kernGeo, kernMat));
+
+                    atomGruppe.wolkenVisuals = [];
+                    atomDaten.wolken.forEach(w => {
+                        const wolkeGeo = new THREE.SphereGeometry(0.5, 32, 32);
+                        let farbe = 0x3498db; // Blau für reaktiv
+                        let opazitaet = 0.3;
+                        if (w.elektronen === 2) { farbe = 0x95a5a6; opazitaet = 0.6; } // Grau für freies Paar
+
+                        const wolkeMat = new THREE.MeshStandardMaterial({ 
+                            color: farbe, 
+                            transparent: true, 
+                            opacity: opazitaet
+                        });
+                        const wolkeMesh = new THREE.Mesh(wolkeGeo, wolkeMat);
+                        wolkeMesh.position.fromArray(w.richtung_lokal);
+                        
+                        atomGruppe.add(wolkeMesh);
+                        atomGruppe.wolkenVisuals[w.id] = wolkeMesh;
+                    });
+
+                    scene.add(atomGruppe);
+                    atomMeshes[uid] = atomGruppe;
+                }
+
+                // ========================================================
+                // AB HIER: DIESER TEIL LÄUFT BEI JEDEM UPDATE (AUCH BEIM 2. KLICK!)
+                // ========================================================
+                const atomGruppe = atomMeshes[uid];
+                
+                // Position und Rotation updaten
+                atomGruppe.position.fromArray(atomDaten.position);
+                const m4 = new THREE.Matrix4();
+                const r = atomDaten.rotation;
+                m4.set(r[0], r[1], r[2], 0, r[3], r[4], r[5], 0, r[6], r[7], r[8], 0, 0, 0, 0, 1);
+                atomGruppe.rotation.setFromRotationMatrix(m4);
+
+                // Wolken-Zustände und Klickbarkeit synchronisieren
+                atomDaten.wolken.forEach(w => {
+                    const wolkeMesh = atomGruppe.wolkenVisuals[w.id];
+                    
+                    // Metadaten frisch aufspielen
+                    wolkeMesh.userData = {
+                        atomId: uid,
+                        wolkeId: w.id,
+                        elektronen: w.elektronen
+                    };
+
+                    if (w.elektronen === 3) {
+                        // Gebunden -> Grün färben, nicht mehr anklickbar machen
+                        wolkeMesh.material.color.setHex(0x2ecc71);
+                        wolkeMesh.material.opacity = 0.5;
+                    } else if (w.elektronen === 1) {
+                        // Reaktiv -> Standard-Blau wiederherstellen (falls es vorher gelb/orange war)
+                        wolkeMesh.material.color.setHex(0x3498db);
+                        wolkeMesh.material.opacity = 0.3;
+                        
+                        // WICHTIG: Nur noch freie, reaktive Wolken landen in der Klick-Liste!
+                        anklickbareWolken.push(wolkeMesh);
+                    }
+                });
+            }
+        }
+
+        // ========================================================
+        // 3. API-VERBINDUNG (DIE BRÜCKE)
+        // ========================================================
+        async function ladeZustand() {
+            try {
+                const response = await fetch(`${API_URL}/status`);
+                const daten = await response.json();
+                document.getElementById('server-status').innerText = "Verbunden";
+                document.getElementById('server-status').style.color = "#2ecc71";
+                
+                // Szene updaten
+                aktualisiere3DSzene(daten);
+            } catch (e) {
+                document.getElementById('server-status').innerText = "Offline";
+                document.getElementById('server-status').style.color = "#e74c3c";
+            }
+        }
+
+
+        // Speicher für die Mehrfachauswahl
+        let ausgewaehlteWolkenA = []; // IDs von Atom A (z.B. O_links)
+        let ausgewaehlteWolkenB = []; // IDs von Atom B (z.B. O_rechts)
+        let atomA_Id = null;
+        let atomB_Id = null;
+
+        function onMouseClick(event) {
+            if (event.target.tagName === 'BUTTON') return;
+
+            mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
+            mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
+
+            raycaster.setFromCamera(mouse, camera);
+            const intersects = raycaster.intersectObjects(anklickbareWolken);
+
+            if (intersects.length > 0) {
+                const getroffeneWolke = intersects[0].object;
+                const info = getroffeneWolke.userData;
+
+                console.log(`Angeklickt: Atom ${info.atomId}, Wolke ${info.wolkeId}`);
+
+                // FALL 1: Korb A ist noch leer -> Erste Wolke hineinlegen
+                if (!atomA_Id) {
+                    atomA_Id = info.atomId;
+                    ausgewaehlteWolkenA.push(info.wolkeId);
+                    getroffeneWolke.material.color.setHex(0xf1c40f); // Gelb einfärben
+                    getroffeneWolke.material.opacity = 0.8;
+                    console.log(`Erste Wolke gewählt: ${atomA_Id} (Wolke ${info.wolkeId})`);
+                } 
+                // FALL 2: Korb A ist besetzt, aber Korb B ist noch leer
+                else if (!atomB_Id) {
+                    // Validierung: Man darf keine zwei Wolken desselben Atoms miteinander verbinden
+                    if (info.atomId === atomA_Id) {
+                        alert("Fehler: Du musst eine Wolke von einem ANDEREN Atom wählen!");
+                        return;
+                    }
+                    
+                    atomB_Id = info.atomId;
+                    ausgewaehlteWolkenB.push(info.wolkeId);
+                    getroffeneWolke.material.color.setHex(0xe67e22); // Orange einfärben
+                    getroffeneWolke.material.opacity = 0.8;
+                    console.log(`Zweite Wolke gewählt: ${atomB_Id} (Wolke ${info.wolkeId})`);
+                } 
+                // FALL 3: Beide Körbe sind schon besetzt (Nutzer klickt wild weiter)
+                else {
+                    alert("Du hast bereits zwei Atome ausgewählt! Klicke auf 'Verbinden' oder 'Reset'.");
+                    return;
+                }
+
+                // UI-Text aktualisieren
+                const textA = atomA_Id ? `${atomA_Id}[W${ausgewaehlteWolkenA[0]}]` : "leer";
+                const textB = atomB_Id ? `${atomB_Id}[W${ausgewaehlteWolkenB[0]}]` : "leer";
+                document.getElementById('auswahl-status').innerText = `Auswahl: A = ${textA} | B = ${textB}`;
+            }
+        }
+
+        async function fuehreSVDVerbindungAus() {
+            if (ausgewaehlteWolkenA.length === 0 || ausgewaehlteWolkenB.length === 0) {
+                alert("Bitte wähle von beiden Atomen mindestens eine Wolke aus!");
+                return;
+            }
+
+            // --- STRATEGISCHER ROLLENTAUSCH FÜR SYMMETRIE ---
+            // Wir definieren finale Variablen für den Server
+            let final_A_id = atomA_Id;
+            let final_A_wolken = ausgewaehlteWolkenA;
+            let final_B_id = atomB_Id;
+            let final_B_wolken = ausgewaehlteWolkenB;
+
+            // Wenn der Nutzer zuerst das H-Atom (A) und dann das O-Atom (B) angeklickt hat,
+            // drehen wir die Rollen um, damit das O-Atom IMMER die unbewegte Basis (A) bleibt!
+            if (atomA_Id.startsWith("H_") && atomB_Id.startsWith("O_")) {
+                console.log("Reihenfolge korrigiert: Tausche H und O für stabile SVD-Berechnung.");
+                final_A_id = atomB_Id;
+                final_A_wolken = ausgewaehlteWolkenB;
+                final_B_id = atomA_Id;
+                final_B_wolken = ausgewaehlteWolkenA;
+            }
+            // ------------------------------------------------
+
+            try {
+                console.log("Sende normalisierte Bindung an Python...", { final_A_id, final_B_id });
+                
+                const response = await fetch(`${API_URL}/binde`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        atom_A_id: final_A_id,
+                        wolken_A_ids: final_A_wolken,
+                        atom_B_id: final_B_id,
+                        wolken_B_ids: final_B_wolken
+                    })
+                });
+                await response.json();
+                
+                setzeAuswahlZurueck();
+                ladeZustand(); 
+                
+            } catch (e) { 
+                console.error("Fehler beim Verbinden:", e); 
+            }
+        }
+        
+        
+// Hilfsfunktion zum Zurücksetzen der Auswahl-Variablen
+function setzeAuswahlZurueck() {
+    ausgewaehlteWolkenA = [];
+    ausgewaehlteWolkenB = [];
+    atomA_Id = null;
+    atomB_Id = null;
+    anklickbareWolken.length = 0; // Löscht die alten Klick-Referenzen
+    document.getElementById('auswahl-status').innerText = "Auswahl leer";
+    console.log("Warenkorb erfolgreich für die nächste Bindung geleert.");
+}
+
+        async function triggereProcrustesBindung() {
+            try {
+                const response = await fetch(`${API_URL}/binde`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        atom_A_id: "O_links", wolken_A_ids: [2, 3],
+                        atom_B_id: "O_rechts", wolken_B_ids: [2, 3]
+                    })
+                });
+                await response.json();
+                ladeZustand(); // Neu zeichnen nach dem Snap!
+            } catch (e) { console.error(e); }
+        }
+
+
+        
+        // Neue Funktion, um den Reset-Befehl an Python zu senden
+        async function triggereReset() {
+            try {
+                console.log("Sende Reset-Befehl an das Backend...");
+                const response = await fetch(`${API_URL}/reset`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' }
+                });
+                await response.json();
+                
+                // WICHTIG: Da die Atome im Backend neu erstellt wurden, müssen wir 
+                // die alten Three.js-Visualisierungen komplett löschen und neu laden!
+                for (const uid in atomMeshes) {
+                    scene.remove(atomMeshes[uid]);
+                }
+                // Speicher im JavaScript leeren
+                for (const member in atomMeshes) delete atomMeshes[member];
+                
+                // Den frischen Zustand aus Python abrufen und neu zeichnen
+                setzeAuswahlZurueck();
+                ladeZustand();
+
+                anklickbareWolken.length = 0;
+                ersteAusgewaehlteWolke = null;
+                
+            } catch (e) { 
+                console.error("Reset fehlgeschlagen:", e); 
+            }
+        }
+
+        async function sendeDynamischeBindung(wolkeA, wolkeB) {
+            try {
+                console.log(`Sende Paarung an Python: ${wolkeA.atomId}(${wolkeA.wolkeId}) <-> ${wolkeB.atomId}(${wolkeB.wolkeId})`);
+                
+                const response = await fetch(`${API_URL}/binde`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        atom_A_id: wolkeA.atomId,
+                        wolken_A_ids: [wolkeA.wolkeId], // Python erwartet eine Liste []
+                        atom_B_id: wolkeB.atomId,
+                        wolken_B_ids: [wolkeB.wolkeId]
+                    })
+                });
+                await response.json();
+                
+                // Wichtig: Da sich der Zustand ändert, leeren wir die Klick-Liste 
+                // und holen uns die frisch berechneten Positionen von Python ab
+                anklickbareWolken.length = 0;
+                ladeZustand(); 
+                
+            } catch (e) {
+                console.error("Fehler beim Senden der dynamischen Bindung:", e);
+            }
+        }
+
+        // Event-Listener für den Reset-Button registrieren
+        document.getElementById('btn-reset').addEventListener('click', triggereReset);
+        
+        // Event-Listener für Bindung mit Ausrichtung mit Procrustes Algorithmus
+        document.getElementById('btn-binden').addEventListener('click', triggereProcrustesBindung);
+
+        // Listener für den neuen Verbinden-Button
+        document.getElementById('btn-binden').addEventListener('click', fuehreSVDVerbindungAus);
+        
+        
+        // Animations-Schleife für flüssiges Rendering
+        function animate() {
+            requestAnimationFrame(animate);
+            controls.update();
+            renderer.render(scene, camera);
+        }
+
+        // Registriere den Maus-Klick
+        window.addEventListener('click', onMouseClick);
+        
+        
+
+        // Startschuss
+        ladeZustand();
+        animate();
+
+        
+
+        // Fenstergröße dynamisch anpassen
+        window.addEventListener('resize', () => {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        });
+    </script>
+</body>
+</html>
