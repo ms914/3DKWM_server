@@ -14,3 +14,7 @@
 - Atom A: O_links bei [0, 0, 0]
 - Atom B: O_rechts bei [3, 2, 1] (schief im Raum)
 - Bindung: Starr verdreht über hartcodierte Wolken-IDs [2, 3] im Backend.
+
+- # Projekt: Kugelwolkenmodell 3D (Status: H2O-Prototyp läuft)
+- Änderungen Server (kwm_server_H2O.ipynb): Wasserstoff hat nur eine Elektronwolke, die mit dem Kern überlappt
+- Änderungen Client three.js (H2O_index.html): Wasserstoff weiss und klein zeichnen, onMouseClick selektiert erstes Atom als Atom A und das zweite als Atom B
