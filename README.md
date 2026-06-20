@@ -21,4 +21,5 @@
 - Reihenfolge der clicks: es muss ein Wasserstoff-Atom an die Geometrie des Sauerstoff gebunden werden, da sonst der Prokrustes Algorithmus nicht funktioniert. Die Reihenfolge wird intern so dargestellt, wenn andersrum geklickt wurde.
 
 - # Projekt: Kugelwolkenmodell (Status: PSE - Prototyp)
-- 
+- Änderungen Server: Füge Chemie Modul hinzu
+- Änderungen Client: Mehrere Atome können der Szene hinzugefügt werden; Bindungsmodul verbesserungswürdig
