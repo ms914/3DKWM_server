@@ -26,3 +26,8 @@
 - Maussteuerung: wähle Bindungswolken aus und verbinde
 - Geometrie bei Mehrfachbindungen in Vektoralgebra und GA
 - C-C 3-fach Bindung: Orientierung kann flippen, so dass die Bindungswolke aussen liegt
+
+- # Projekt: Kugelwolkenmodell (Status: PSE - Annäherungsmodul)
+- Änderungen Server: 
+- Änderungen Client: Orientierung der Atome vor der Bindung frei wählbar (Rotation und Translation), Annäherungsmodul für Bindungen (wählbar per Mausklick oder Verschiebung)
+- Übertragung der Logik auf weitere Implementierungen (KWM javascript Module, html-app, python-Frontend)
