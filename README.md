@@ -31,3 +31,4 @@
 - Änderungen Server: 
 - Änderungen Client: Orientierung der Atome vor der Bindung frei wählbar (Rotation und Translation), Annäherungsmodul für Bindungen (wählbar per Mausklick oder Verschiebung)
 - Übertragung der Logik auf weitere Implementierungen (KWM javascript Module, html-app, python-Frontend)
+- Elektronen in Wolken, Annäherungs-Animation, Bananen als Bindungswolken, Schalenmodell, Lewis, Verknüpfung mit Avogadro, hell-dunkel, vorgefertigte Moleküle, Import-, Export als mol File, smiles Input, GA-Logik
