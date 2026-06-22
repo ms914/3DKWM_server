@@ -22,4 +22,5 @@
 
 - # Projekt: Kugelwolkenmodell (Status: PSE - Prototyp)
 - Änderungen Server: Füge Chemie Modul hinzu
-- Änderungen Client: Mehrere Atome können der Szene hinzugefügt werden; Bindungsmodul verbesserungswürdig
+- Änderungen Client: Mehrere Atome können der Szene hinzugefügt werden; Bindungsmodul erstellt korrekte Mehrfachbindungen
+- Maussteuerung: wähle Bindungswolken aus und verbinde
