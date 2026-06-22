@@ -20,7 +20,7 @@
 - Änderungen Client three.js (H2O_index.html): Wasserstoff weiss und klein zeichnen, onMouseClick selektiert erstes Atom als Atom A und das zweite als Atom B, anklickbare Wolken müssen beim Zeichnen wieder auf 0 gesetzt werden, Daten müssen zurückgesetzt werden. - -aktualisiere3Dscene(daten): bei jedem Aufruf werden die Wolken und Bindungswolken upgedated mit anklickbareWolken.push(wolkeMesh)
 - Reihenfolge der clicks: es muss ein Wasserstoff-Atom an die Geometrie des Sauerstoff gebunden werden, da sonst der Prokrustes Algorithmus nicht funktioniert. Die Reihenfolge wird intern so dargestellt, wenn andersrum geklickt wurde.
 
-- # Projekt: Kugelwolkenmodell (Status: PSE - Prototyp)
+- # Projekt: Kugelwolkenmodell (Status: PSE - Prototyp läuft)
 - Änderungen Server: Füge Chemie Modul hinzu, Bindungsmodul berechnet Orientierung nach Bindungstyp (1-fach, 2-fach, 3-fach)
 - Änderungen Client: Mehrere Atome können der Szene hinzugefügt werden
 - Maussteuerung: wähle Bindungswolken aus und verbinde
