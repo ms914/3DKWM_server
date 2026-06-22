@@ -25,3 +25,4 @@
 - Änderungen Client: Mehrere Atome können der Szene hinzugefügt werden
 - Maussteuerung: wähle Bindungswolken aus und verbinde
 - Geometrie bei Mehrfachbindungen in Vektoralgebra und GA
+- C-C 3-fach Bindung: Orientierung kann flippen, so dass die Bindungswolke aussen liegt
