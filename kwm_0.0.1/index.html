@@ -1,0 +1,210 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <title>Kugelwolkenmodell 3D Viewport</title>
+    <style>
+        body { margin: 0; overflow: hidden; background-color: #1a1a1a; color: white; font-family: sans-serif; }
+        #ui-layer { position: absolute; top: 10px; left: 10px; z-index: 10; background: rgba(0,0,0,0.8); padding: 15px; border-radius: 8px; }
+        button { background: #2980b9; color: white; border: none; padding: 10px 15px; border-radius: 4px; cursor: pointer; font-weight: bold;}
+        button:hover { background: #3498db; }
+    </style>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+</head>
+<body>
+
+  
+
+    <div id="ui-layer">
+        <h2>KWM 3D-Simulation</h2>
+        <p>Server-Status: <span id="server-status">Verbinde...</span></p>
+        <button id="btn-binden">Doppelbindung ausführen (SVD)</button>
+        <button id="btn-reset" style="background: #e74c3c; margin-top: 5px;">Reset Simulation</button>
+    </div>
+
+    <script>
+        // ========================================================
+        // CONFIG: HIER DEINE API-URL EINTRAGEN
+        // ========================================================
+        const API_URL = 'https://3f47-136-112-150-251.ngrok-free.app'; // Oder deine https://...ngrok-free.app
+
+        // ========================================================
+        // 1. THREE.JS INITIALISIERUNG (DIE BÜHNE)
+        // ========================================================
+        const scene = new THREE.Scene();
+        const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+        const renderer = new THREE.WebGLRenderer({ antialias: true });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        document.body.appendChild(renderer.domElement);
+
+        // Kamera-Steuerung mit der Maus
+        const controls = new THREE.OrbitControls(camera, renderer.domElement);
+        camera.position.set(0, 3, 7);
+        controls.update();
+
+        // Lichtquellen hinzufügen
+        const ambientLight = new THREE.AmbientLight(0xffffff, 0.4);
+        scene.add(ambientLight);
+        const dirLight = new THREE.DirectionalLight(0xffffff, 0.8);
+        dirLight.position.set(5, 10, 7);
+        scene.add(dirLight);
+
+        // Speicher für die 3D-Objekte der Atome, um sie später zu bewegen
+        const atomMeshes = {};
+
+        // ========================================================
+        // 2. RENDERING LOGIK (AUS DATEN WERDEN KÖRPER)
+        // ========================================================
+        function aktualisiere3DSzene(daten) {
+            for (const uid in daten) {
+                const atomDaten = daten[uid];
+                
+                // Wenn das Atom noch nicht in der 3D-Szene existiert, erstelle es
+                if (!atomMeshes[uid]) {
+                    const atomGruppe = new THREE.Group();
+                    
+                    // Atomkern (Rote Kugel für Sauerstoff)
+                    const kernGeo = new THREE.SphereGeometry(0.3, 32, 32);
+                    const kernMat = new THREE.MeshStandardMaterial({ color: 0xe74c3c, roughness: 0.3 });
+                    const kernMesh = new THREE.Mesh(kernGeo, kernMat);
+                    atomGruppe.add(kernMesh);
+
+                    // Die 4 Kugelwolken als Sub-Elemente hinzufügen
+                    atomGruppe.wolkenVisuals = [];
+                    atomDaten.wolken.forEach(w => {
+                        const wolkeGeo = new THREE.SphereGeometry(0.5, 32, 32); // Radius 0.5
+                        
+                        // Farbe je nach Zustand (Elektronen) definieren
+                        let farbe = 0x3498db; // Blau für freie reaktive Wolken
+                        let opazitaet = 0.3;
+                        if (w.elektronen === 2) { farbe = 0x95a5a6; opazitaet = 0.6; } // Grau für Paare
+
+                        const wolkeMat = new THREE.MeshStandardMaterial({ 
+                            color: farbe, 
+                            transparent: true, 
+                            opacity: opazitaet,
+                            wireframe: false 
+                        });
+                        const wolkeMesh = new THREE.Mesh(wolkeGeo, wolkeMat);
+                        
+                        // Wolke lokal im Tetraeder-Abstand platzieren
+                        wolkeMesh.position.fromArray(w.richtung_lokal);
+                        atomGruppe.add(wolkeMesh);
+                        
+                        // Referenz merken, um später die Farbe zu ändern
+                        atomGruppe.wolkenVisuals[w.id] = wolkeMesh;
+                    });
+
+                    scene.add(atomGruppe);
+                    atomMeshes[uid] = atomGruppe;
+                }
+
+                // AKTUALISIERUNG VON POSITION UND ROTATION AUS PYTHON
+                const atomGruppe = atomMeshes[uid];
+                atomGruppe.position.fromArray(atomDaten.position);
+                
+                // Rotationsmatrix (3x3) in Three.js Matrix4 konvertieren
+                const m4 = new THREE.Matrix4();
+                const r = atomDaten.rotation;
+                m4.set(
+                    r[0], r[1], r[2], 0,
+                    r[3], r[4], r[5], 0,
+                    r[6], r[7], r[8], 0,
+                    0,    0,    0,    1
+                );
+                atomGruppe.rotation.setFromRotationMatrix(m4);
+
+                // Update der Wolkenfarben, falls sie jetzt gebunden (Wert 3) sind
+                atomDaten.wolken.forEach(w => {
+                    if (w.elektronen === 3) {
+                        atomGruppe.wolkenVisuals[w.id].material.color.setHex(0x2ecc71); // Grün für Bindung!
+                        atomGruppe.wolkenVisuals[w.id].material.opacity = 0.4;
+                    }
+                });
+            }
+        }
+
+        // ========================================================
+        // 3. API-VERBINDUNG (DIE BRÜCKE)
+        // ========================================================
+        async function ladeZustand() {
+            try {
+                const response = await fetch(`${API_URL}/status`);
+                const daten = await response.json();
+                document.getElementById('server-status').innerText = "Verbunden";
+                document.getElementById('server-status').style.color = "#2ecc71";
+                
+                // Szene updaten
+                aktualisiere3DSzene(daten);
+            } catch (e) {
+                document.getElementById('server-status').innerText = "Offline";
+                document.getElementById('server-status').style.color = "#e74c3c";
+            }
+        }
+
+        async function triggereProcrustesBindung() {
+            try {
+                const response = await fetch(`${API_URL}/binde`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        atom_A_id: "O_links", wolken_A_ids: [2, 3],
+                        atom_B_id: "O_rechts", wolken_B_ids: [2, 3]
+                    })
+                });
+                await response.json();
+                ladeZustand(); // Neu zeichnen nach dem Snap!
+            } catch (e) { console.error(e); }
+        }
+
+        document.getElementById('btn-binden').addEventListener('click', triggereProcrustesBindung);
+
+        // Neue Funktion, um den Reset-Befehl an Python zu senden
+        async function triggereReset() {
+            try {
+                console.log("Sende Reset-Befehl an das Backend...");
+                const response = await fetch(`${API_URL}/reset`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' }
+                });
+                await response.json();
+                
+                // WICHTIG: Da die Atome im Backend neu erstellt wurden, müssen wir 
+                // die alten Three.js-Visualisierungen komplett löschen und neu laden!
+                for (const uid in atomMeshes) {
+                    scene.remove(atomMeshes[uid]);
+                }
+                // Speicher im JavaScript leeren
+                for (const member in atomMeshes) delete atomMeshes[member];
+                
+                // Den frischen Zustand aus Python abrufen und neu zeichnen
+                ladeZustand();
+                
+            } catch (e) { 
+                console.error("Reset fehlgeschlagen:", e); 
+            }
+        }
+
+// Event-Listener für den Reset-Button registrieren
+document.getElementById('btn-reset').addEventListener('click', triggereReset);
+        // Animations-Schleife für flüssiges Rendering
+        function animate() {
+            requestAnimationFrame(animate);
+            controls.update();
+            renderer.render(scene, camera);
+        }
+        
+        // Startschuss
+        ladeZustand();
+        animate();
+
+        // Fenstergröße dynamisch anpassen
+        window.addEventListener('resize', () => {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        });
+    </script>
+</body>
+</html>
