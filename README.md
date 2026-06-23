@@ -27,6 +27,7 @@
 - Geometrie bei Mehrfachbindungen in Vektoralgebra und GA
 - C-C 3-fach Bindung: Orientierung kann flippen, so dass die Bindungswolke aussen liegt (gefixed, SVD Mod)
 - /bind endpoint: Stabilisierung für 3-fach Bindungen (keine flipps mehr)
+- Version in Github Pages läuft: ruft ngrok Tunnel über Adresse in config,json auf. Bei Neustart ngrok URL in config.json eintragen.
 
 - # Projekt: Kugelwolkenmodell (Status: PSE - Annäherungsmodul)
 - Änderungen Server: 
