@@ -2,209 +2,367 @@
 <html lang="de">
 <head>
     <meta charset="UTF-8">
-    <title>Kugelwolkenmodell 3D Viewport</title>
+    <title>Universeller KWM Molekülbaukasten</title>
     <style>
-        body { margin: 0; overflow: hidden; background-color: #1a1a1a; color: white; font-family: sans-serif; }
-        #ui-layer { position: absolute; top: 10px; left: 10px; z-index: 10; background: rgba(0,0,0,0.8); padding: 15px; border-radius: 8px; }
-        button { background: #2980b9; color: white; border: none; padding: 10px 15px; border-radius: 4px; cursor: pointer; font-weight: bold;}
-        button:hover { background: #3498db; }
+        body { margin: 0; overflow: hidden; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #111; color: white; }
+        #canvas-container { width: 100vw; height: 100vh; }
+        #ui-layer {
+            position: absolute; top: 20px; left: 20px;
+            background: rgba(20, 20, 20, 0.85); padding: 20px;
+            border-radius: 10px; box-shadow: 0 4px 20px rgba(0,0,0,0.5);
+            width: 280px; border: 1px solid rgba(255,255,255,0.1);
+            pointer-events: auto; z-index: 10;
+        }
+        h2 { margin: 0 0 5px 0; font-size: 1.3em; color: #fff; }
+        p { margin: 0 0 15px 0; font-size: 0.85em; color: #aaa; }
+        .btn-group { margin-bottom: 15px; background: rgba(255,255,255,0.05); padding: 8px; border-radius: 5px; }
+        .btn-group-title { margin: 0 0 8px 0; font-size: 0.8em; font-weight: bold; color: #ecf0f1; text-transform: uppercase; }
+        button {
+            border: none; padding: 8px 12px; border-radius: 4px;
+            color: white; font-weight: bold; cursor: pointer;
+            transition: all 0.2s ease; font-size: 0.9em;
+        }
+        button:hover { filter: brightness(1.2); }
+        .atom-btn { padding: 5px 10px; margin: 2px; font-size: 0.85em; }
+        #auswahl-status { font-family: monospace; font-size: 0.85em; color: #f1c40f; min-height: 20px; margin-bottom: 15px; }
     </style>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
 </head>
 <body>
 
-  
-
-    <div id="ui-layer">
-        <h2>KWM 3D-Simulation</h2>
-        <p>Server-Status: <span id="server-status">Verbinde...</span></p>
-        <button id="btn-binden">Doppelbindung ausführen (SVD)</button>
-        <button id="btn-reset" style="background: #e74c3c; margin-top: 5px;">Reset Simulation</button>
+<div id="ui-layer" onclick="event.stopPropagation()">    
+    <h2>Molekülbaukasten</h2>
+    <p>SVD-Engine (2. Periode)</p>
+    
+    <div class="btn-group">
+        <div class="btn-group-title">Atom hinzufügen</div>
+        <button class="atom-btn" onclick="fuegeAtomHinzu('H')" style="background: #7f8c8d;">+ H</button>
+        <button class="atom-btn" onclick="fuegeAtomHinzu('Li')" style="background: #9b59b6;">+ Li</button>
+        <button class="atom-btn" onclick="fuegeAtomHinzu('Be')" style="background: #d35400;">+ Be</button>
+        <button class="atom-btn" onclick="fuegeAtomHinzu('B')" style="background: #1abc9c;">+ B</button>
+        <button class="atom-btn" onclick="fuegeAtomHinzu('C')" style="background: #34495e;">+ C</button>
+        <button class="atom-btn" onclick="fuegeAtomHinzu('N')" style="background: #2980b9;">+ N</button>
+        <button class="atom-btn" onclick="fuegeAtomHinzu('O')" style="background: #e74c3c;">+ O</button>
+        <button class="atom-btn" onclick="fuegeAtomHinzu('F')" style="background: #27ae60;">+ F</button>
     </div>
 
-    <script>
-        // ========================================================
-        // CONFIG: HIER DEINE API-URL EINTRAGEN
-        // ========================================================
-        const API_URL = 'https://3f47-136-112-150-251.ngrok-free.app'; // Oder deine https://...ngrok-free.app
+    <div id="auswahl-status">Szene ist leer</div>
+    
+    <button id="btn-binden" style="background: #2ecc71; width: 100%; margin-bottom: 8px;">Auswahl verbinden (SVD)</button>
+    <button id="btn-reset" style="background: #c0392b; width: 100%;">Szene leeren</button>
+</div>
 
-        // ========================================================
-        // 1. THREE.JS INITIALISIERUNG (DIE BÜHNE)
-        // ========================================================
-        const scene = new THREE.Scene();
-        const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
-        const renderer = new THREE.WebGLRenderer({ antialias: true });
+<div id="canvas-container"></div>
+
+<script>
+    // --- DIENST-KONFIGURATION ---
+    const API_URL = "https://7983-34-75-42-34.ngrok-free.app"; // <-- Bitte deine aktuelle ngrok-URL einsetzen!
+
+    // --- GLOBALE VARIABLEN ---
+    let scene, camera, renderer, controls;
+    let atomMeshes = {};        // Speichert die aktiven Three.js-Atom-Gruppen
+    let anklickbareWolken = []; // Pool für den Raycaster
+
+    // Der Auswahl-Warenkorb
+    let atomA_Id = null, atomB_Id = null;
+    let ausgewaehlteWolkenA = [], ausgewaehlteWolkenB = [];
+
+    const raycaster = new THREE.Raycaster();
+    const mouse = new THREE.Vector2();
+
+    // --- INITIALISIERUNG DER 3D-WELT ---
+    function init3D() {
+        const container = document.getElementById('canvas-container');
+        scene = new THREE.Scene();
+        scene.background = new THREE.Color(0x111111);
+
+        camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 100);
+        camera.position.set(0, 5, 10);
+
+        renderer = new THREE.WebGLRenderer({ antialias: true });
         renderer.setSize(window.innerWidth, window.innerHeight);
-        document.body.appendChild(renderer.domElement);
+        container.appendChild(renderer.domElement);
 
-        // Kamera-Steuerung mit der Maus
-        const controls = new THREE.OrbitControls(camera, renderer.domElement);
-        camera.position.set(0, 3, 7);
-        controls.update();
+        controls = new THREE.OrbitControls(camera, renderer.domElement);
+        controls.enableDamping = true;
 
-        // Lichtquellen hinzufügen
+        // Beleuchtung
         const ambientLight = new THREE.AmbientLight(0xffffff, 0.4);
         scene.add(ambientLight);
-        const dirLight = new THREE.DirectionalLight(0xffffff, 0.8);
-        dirLight.position.set(5, 10, 7);
-        scene.add(dirLight);
+        const dirLight1 = new THREE.DirectionalLight(0xffffff, 0.6);
+        dirLight1.position.set(5, 10, 7);
+        scene.add(dirLight1);
+        const dirLight2 = new THREE.DirectionalLight(0xffffff, 0.2);
+        dirLight2.position.set(-5, -5, -5);
+        scene.add(dirLight2);
 
-        // Speicher für die 3D-Objekte der Atome, um sie später zu bewegen
-        const atomMeshes = {};
+        window.addEventListener('resize', onWindowResize);
+        window.addEventListener('click', onMouseClick);
 
-        // ========================================================
-        // 2. RENDERING LOGIK (AUS DATEN WERDEN KÖRPER)
-        // ========================================================
-        function aktualisiere3DSzene(daten) {
-            for (const uid in daten) {
-                const atomDaten = daten[uid];
-                
-                // Wenn das Atom noch nicht in der 3D-Szene existiert, erstelle es
-                if (!atomMeshes[uid]) {
-                    const atomGruppe = new THREE.Group();
-                    
-                    // Atomkern (Rote Kugel für Sauerstoff)
-                    const kernGeo = new THREE.SphereGeometry(0.3, 32, 32);
-                    const kernMat = new THREE.MeshStandardMaterial({ color: 0xe74c3c, roughness: 0.3 });
-                    const kernMesh = new THREE.Mesh(kernGeo, kernMat);
-                    atomGruppe.add(kernMesh);
+        // Event-Listener für Steuerungs-Buttons
+        document.getElementById('btn-binden').addEventListener('click', fuehreSVDVerbindungAus);
+        document.getElementById('btn-reset').addEventListener('click', setzeWeltZurueck);
 
-                    // Die 4 Kugelwolken als Sub-Elemente hinzufügen
-                    atomGruppe.wolkenVisuals = [];
-                    atomDaten.wolken.forEach(w => {
-                        const wolkeGeo = new THREE.SphereGeometry(0.5, 32, 32); // Radius 0.5
-                        
-                        // Farbe je nach Zustand (Elektronen) definieren
-                        let farbe = 0x3498db; // Blau für freie reaktive Wolken
-                        let opazitaet = 0.3;
-                        if (w.elektronen === 2) { farbe = 0x95a5a6; opazitaet = 0.6; } // Grau für Paare
-
-                        const wolkeMat = new THREE.MeshStandardMaterial({ 
-                            color: farbe, 
-                            transparent: true, 
-                            opacity: opazitaet,
-                            wireframe: false 
-                        });
-                        const wolkeMesh = new THREE.Mesh(wolkeGeo, wolkeMat);
-                        
-                        // Wolke lokal im Tetraeder-Abstand platzieren
-                        wolkeMesh.position.fromArray(w.richtung_lokal);
-                        atomGruppe.add(wolkeMesh);
-                        
-                        // Referenz merken, um später die Farbe zu ändern
-                        atomGruppe.wolkenVisuals[w.id] = wolkeMesh;
-                    });
-
-                    scene.add(atomGruppe);
-                    atomMeshes[uid] = atomGruppe;
-                }
-
-                // AKTUALISIERUNG VON POSITION UND ROTATION AUS PYTHON
-                const atomGruppe = atomMeshes[uid];
-                atomGruppe.position.fromArray(atomDaten.position);
-                
-                // Rotationsmatrix (3x3) in Three.js Matrix4 konvertieren
-                const m4 = new THREE.Matrix4();
-                const r = atomDaten.rotation;
-                m4.set(
-                    r[0], r[1], r[2], 0,
-                    r[3], r[4], r[5], 0,
-                    r[6], r[7], r[8], 0,
-                    0,    0,    0,    1
-                );
-                atomGruppe.rotation.setFromRotationMatrix(m4);
-
-                // Update der Wolkenfarben, falls sie jetzt gebunden (Wert 3) sind
-                atomDaten.wolken.forEach(w => {
-                    if (w.elektronen === 3) {
-                        atomGruppe.wolkenVisuals[w.id].material.color.setHex(0x2ecc71); // Grün für Bindung!
-                        atomGruppe.wolkenVisuals[w.id].material.opacity = 0.4;
-                    }
-                });
-            }
-        }
-
-        // ========================================================
-        // 3. API-VERBINDUNG (DIE BRÜCKE)
-        // ========================================================
-        async function ladeZustand() {
-            try {
-                const response = await fetch(`${API_URL}/status`);
-                const daten = await response.json();
-                document.getElementById('server-status').innerText = "Verbunden";
-                document.getElementById('server-status').style.color = "#2ecc71";
-                
-                // Szene updaten
-                aktualisiere3DSzene(daten);
-            } catch (e) {
-                document.getElementById('server-status').innerText = "Offline";
-                document.getElementById('server-status').style.color = "#e74c3c";
-            }
-        }
-
-        async function triggereProcrustesBindung() {
-            try {
-                const response = await fetch(`${API_URL}/binde`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        atom_A_id: "O_links", wolken_A_ids: [2, 3],
-                        atom_B_id: "O_rechts", wolken_B_ids: [2, 3]
-                    })
-                });
-                await response.json();
-                ladeZustand(); // Neu zeichnen nach dem Snap!
-            } catch (e) { console.error(e); }
-        }
-
-        document.getElementById('btn-binden').addEventListener('click', triggereProcrustesBindung);
-
-        // Neue Funktion, um den Reset-Befehl an Python zu senden
-        async function triggereReset() {
-            try {
-                console.log("Sende Reset-Befehl an das Backend...");
-                const response = await fetch(`${API_URL}/reset`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' }
-                });
-                await response.json();
-                
-                // WICHTIG: Da die Atome im Backend neu erstellt wurden, müssen wir 
-                // die alten Three.js-Visualisierungen komplett löschen und neu laden!
-                for (const uid in atomMeshes) {
-                    scene.remove(atomMeshes[uid]);
-                }
-                // Speicher im JavaScript leeren
-                for (const member in atomMeshes) delete atomMeshes[member];
-                
-                // Den frischen Zustand aus Python abrufen und neu zeichnen
-                ladeZustand();
-                
-            } catch (e) { 
-                console.error("Reset fehlgeschlagen:", e); 
-            }
-        }
-
-// Event-Listener für den Reset-Button registrieren
-document.getElementById('btn-reset').addEventListener('click', triggereReset);
-        // Animations-Schleife für flüssiges Rendering
-        function animate() {
-            requestAnimationFrame(animate);
-            controls.update();
-            renderer.render(scene, camera);
-        }
-        
-        // Startschuss
+        // Startzustand laden
         ladeZustand();
         animate();
+    }
 
-        // Fenstergröße dynamisch anpassen
-        window.addEventListener('resize', () => {
-            camera.aspect = window.innerWidth / window.innerHeight;
-            camera.updateProjectionMatrix();
-            renderer.setSize(window.innerWidth, window.innerHeight);
-        });
-    </script>
+    function animate() {
+        requestAnimationFrame(animate);
+        controls.update();
+        renderer.render(scene, camera);
+    }
+
+    function onWindowResize() {
+        camera.aspect = window.innerWidth / window.innerHeight;
+        camera.updateProjectionMatrix();
+        renderer.setSize(window.innerWidth, window.innerHeight);
+    }
+
+    // --- API-SCHNITTSTELLEN (Dienst-Kommunikation) ---
+    async function ladeZustand() {
+        try {
+            const response = await fetch(`${API_URL}/status`);
+            const daten = await response.json();
+            aktualisiere3DSzene(daten);
+        } catch (e) {
+            console.error("Fehler beim Laden des Welt-Zustands:", e);
+        }
+    }
+
+    async function fuegeAtomHinzu(elementSymbol) {
+        try {
+            const response = await fetch(`${API_URL}/erzeuge_atom`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ symbol: elementSymbol })
+            });
+            await response.json();
+            ladeZustand();
+        } catch (e) {
+            console.error("Fehler beim Erzeugen des Atoms:", e);
+        }
+    }
+
+    async function fuehreSVDVerbindungAus() {
+        // Abfangen, wenn keine Wolke gewählt wurd
+        if (ausgewaehlteWolkenA.length === 0 || ausgewaehlteWolkenB.length === 0) {
+            alert("Bitte wähle von beiden Atomen mindestens eine Wolke aus!");
+            return;
+        }
+        // Abfangen, wenn die Anzahl der Wolken bei Mehrfachbindungen ungleich ist
+        if (ausgewaehlteWolkenA.length !== ausgewaehlteWolkenB.length) {
+            alert(`Fehler: Ungleiche Anzahl an Wolken gewählt! Du hast von Atom A ${ausgewaehlteWolkenA.length} Wolke(n) gewählt, aber von Atom B ${ausgewaehlteWolkenB.length}. Für Mehrfachbindungen muss die Anzahl exakt übereinstimmen!`);
+            return;
+        }
+
+        let final_A_id = atomA_Id;
+        let final_A_wolken = ausgewaehlteWolkenA;
+        let final_B_id = atomB_Id;
+        let final_B_wolken = ausgewaehlteWolkenB;
+
+        // Universeller Symmetrie-Tausch: Richtungslose Atome (H, Li) werden IMMER als B behandelt,
+        // damit das strukturierte Zentralatom unbewegt als Basis stehen bleibt.
+        const aIstKugel = atomA_Id.startsWith("H_") || atomA_Id.startsWith("Li_");
+        const bIstZentral = !atomB_Id.startsWith("H_") && !atomB_Id.startsWith("Li_");
+
+        if (aIstKugel && bIstZentral) {
+            final_A_id = atomB_Id;
+            final_A_wolken = ausgewaehlteWolkenB;
+            final_B_id = atomA_Id;
+            final_B_wolken = ausgewaehlteWolkenA;
+        }
+
+        try {
+            const response = await fetch(`${API_URL}/binde`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    atom_A_id: final_A_id,
+                    wolken_A_ids: final_A_wolken,
+                    atom_B_id: final_B_id,
+                    wolken_B_ids: final_B_wolken
+                })
+            });
+            const result = await response.json();
+            
+            // --- DAS NEUE DIAGNOSE-LOG ---
+            console.log("!!! SERVER DIAGNOSE ERHALTEN !!!", result.debug);
+            // ------------------------------
+
+            leereAuswahlWarenkorb();
+            ladeZustand();
+        } catch (e) {
+            console.error("Fehler beim Binden:", e);
+        }
+    }
+
+    async function setzeWeltZurueck() {
+        try {
+            await fetch(`${API_URL}/reset`, { method: 'POST' });
+            leereAuswahlWarenkorb();
+            ladeZustand();
+        } catch (e) {
+            console.error("Fehler beim Reset:", e);
+        }
+    }
+
+    function leereAuswahlWarenkorb() {
+        ausgewaehlteWolkenA = []; ausgewaehlteWolkenB = [];
+        atomA_Id = null; atomB_Id = null;
+        document.getElementById('auswahl-status').innerText = "Auswahl leer";
+    }
+
+    // --- INTERAKTIONS-LOGIK (Mausklicks & Raycasting) ---
+    function onMouseClick(event) {
+        if (event.target.tagName === 'BUTTON') return;
+
+        mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
+        mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
+
+        raycaster.setFromCamera(mouse, camera);
+        const intersects = raycaster.intersectObjects(anklickbareWolken);
+
+        if (intersects.length > 0) {
+            const wolkeMesh = intersects[0].object;
+            const info = wolkeMesh.userData;
+
+            // 1. FALL: Es wurde noch überhaupt nichts ausgewählt -> Starte mit Atom A
+            if (!atomA_Id) {
+                atomA_Id = info.atomId;
+                ausgewaehlteWolkenA.push(info.wolkeId);
+                wolkeMesh.material.color.setHex(0xf1c40f); // Gelb
+                wolkeMesh.material.opacity = 0.8;
+                console.log(`Atom A (${atomA_Id}) ausgewählt. Wolke: ${info.wolkeId}`);
+            } 
+            
+            // 2. FALL: Atom A ist gesetzt. Ist die getroffene Wolke AUCH von Atom A?
+            else if (info.atomId === atomA_Id) {
+                // Falls die Wolke schon im Korb ist, ignorieren (Doppelklick-Schutz)
+                if (ausgewaehlteWolkenA.includes(info.wolkeId)) return;
+                
+                ausgewaehlteWolkenA.push(info.wolkeId);
+                wolkeMesh.material.color.setHex(0xf1c40f); // Gelb
+                wolkeMesh.material.opacity = 0.8;
+                console.log(`Weitere Wolke zu Atom A hinzugefügt: ${info.wolkeId}`);
+            } 
+            
+            // 3. FALL: Die Wolke gehört NICHT zu Atom A -> Es ist Atom B!
+            else if (!atomB_Id || info.atomId === atomB_Id) {
+                if (!atomB_Id) {
+                    atomB_Id = info.atomId;
+                }
+                
+                // Falls die Wolke schon im Korb B ist, ignorieren
+                if (ausgewaehlteWolkenB.includes(info.wolkeId)) return;
+
+                ausgewaehlteWolkenB.push(info.wolkeId);
+                wolkeMesh.material.color.setHex(0xe67e22); // Orange
+                wolkeMesh.material.opacity = 0.8;
+                console.log(`Wolke zu Atom B (${atomB_Id}) hinzugefügt: ${info.wolkeId}`);
+            } 
+            
+            // 4. FALL: Der Nutzer versucht ein drittes Atom ins Spiel zu bringen
+            else {
+                alert("Du kannst pro Bindungsvorgang nur Wolken von maximal ZWEI verschiedenen Atomen auswählen!");
+                return;
+            }
+
+            // UI Text-Update (zeigt jetzt die Listen an)
+            document.getElementById('auswahl-status').innerText = 
+                `Auswahl: A = ${atomA_Id} [Wolken: ${ausgewaehlteWolkenA.join(",")}] | B = ${atomB_Id} [Wolken: ${ausgewaehlteWolkenB.join(",")}]`;
+        }
+    }
+    // --- GEOMETRIE ENGINE (Zeichnen & Synchronisieren) ---
+    function aktualisiere3DSzene(daten) {
+        anklickbareWolken.length = 0; // Klick-Pool leeren
+
+        // Synchronisation: Atome löschen, die auf Server-Seite nicht mehr existieren (z.B. nach Reset)
+        for (const uid in atomMeshes) {
+            if (!daten[uid]) {
+                scene.remove(atomMeshes[uid]);
+                delete atomMeshes[uid];
+            }
+        }
+
+        // Neue Atome aufbauen und bestehende updaten
+        for (const uid in daten) {
+            const atomDaten = daten[uid];
+            
+            // Falls das Atom neu ist, Gruppe erstellen
+            if (!atomMeshes[uid]) {
+                const atomGruppe = new THREE.Group();
+                
+                // Kern zeichnen (Größe und Farbe dynamisch aus Python)
+                const kernGeo = new THREE.SphereGeometry(atomDaten.radius, 32, 32);
+                const isKugelTyp = atomDaten.symbol === "H" || atomDaten.symbol === "Li";
+                const kernMat = new THREE.MeshStandardMaterial({ 
+                    color: atomDaten.farbe, 
+                    roughness: 0.3,
+                    transparent: isKugelTyp,
+                    opacity: isKugelTyp ? 0.5 : 1.0 
+                });
+                atomGruppe.add(new THREE.Mesh(kernGeo, kernMat));
+
+                // Kugelwolken anheften
+                atomGruppe.wolkenVisuals = [];
+                atomDaten.wolken.forEach(w => {
+                    const wolkeGeo = new THREE.SphereGeometry(0.5, 32, 32);
+                    
+                    // Standardfarben basierend auf Elektronenanzahl
+                    let farbe = 0x3498db; // Blau = Reaktiv (1e-)
+                    let opazitaet = 0.3;
+                    if (w.elektronen === 2) { farbe = 0x95a5a6; opazitaet = 0.6; } // Grau = Freies Paar
+
+                    const wolkeMat = new THREE.MeshStandardMaterial({ color: farbe, transparent: true, opacity: opazitaet });
+                    const wolkeMesh = new THREE.Mesh(wolkeGeo, wolkeMat);
+                    wolkeMesh.position.fromArray(w.richtung_lokal);
+                    
+                    // WICHTIG: Metadaten sicher verankern
+                    wolkeMesh.userData = { atomId: uid, wolkeId: w.id, elektronen: w.elektronen };
+                    
+                    atomGruppe.add(wolkeMesh);
+                    atomGruppe.wolkenVisuals[w.id] = wolkeMesh;
+                });
+
+                scene.add(atomGruppe);
+                atomMeshes[uid] = atomGruppe;
+            }
+
+            // --- BEWEGUNGS & ZUSTANDS-UPDATE ---
+            const atomGruppe = atomMeshes[uid];
+            atomGruppe.position.fromArray(atomDaten.position);
+            
+            // Rotation via Matrix4 einspielen
+            const m4 = new THREE.Matrix4();
+            const r = atomDaten.rotation;
+            m4.set(r[0], r[1], r[2], 0, r[3], r[4], r[5], 0, r[6], r[7], r[8], 0, 0, 0, 0, 1);
+            atomGruppe.rotation.setFromRotationMatrix(m4);
+
+            // Wolkenfarben nach Bindungen synchronisieren
+            atomDaten.wolken.forEach(w => {
+                const wolkeMesh = atomGruppe.wolkenVisuals[w.id];
+                wolkeMesh.userData.elektronen = w.elektronen; // Update Zustand
+
+                if (w.elektronen === 3) {
+                    wolkeMesh.material.color.setHex(0x2ecc71); // Grün = Gebunden
+                    wolkeMesh.material.opacity = 0.4;
+                } else if (w.elektronen === 1) {
+                    // Reaktiv: Wieder in den Klick-Pool aufnehmen!
+                    anklickbareWolken.push(wolkeMesh);
+                }
+            });
+        }
+        
+        if (Object.keys(daten).length === 0) {
+            document.getElementById('auswahl-status').innerText = "Szene leer. Spawne Atome!";
+        }
+    }
+
+    // Startbefehl
+    window.onload = init3D;
+</script>
 </body>
 </html>
