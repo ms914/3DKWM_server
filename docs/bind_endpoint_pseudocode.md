@@ -51,6 +51,7 @@ FUNKTION binde_atome(Atom_A, Atom_B, wolken_A_auswahl, wolken_B_auswahl):
         Atom_B.rotation = SVD_ABGLEICH(kovarianz)
 
     WENN anzahl_wolken == 2:
+        // Rotationsmatrix von 3x2 auf 3x3 vervollständigen
         normalenvektor_A = KREUZPRODUKT(ziel_B[0], ziel_B[1])
         normalenvektor_B = KREUZPRODUKT(start_B[0], start_B[1])
         FÜGE_HINZU(ziel_B, normalenvektor_A)
