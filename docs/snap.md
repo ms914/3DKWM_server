@@ -1,8 +1,3 @@
-Wenn das System bei der Annäherung sofort automatisch snappen würde, hättest du bei einem Kohlenstoffatom ($C$) mit vier tetraedrisch angeordneten Wolken ein massives Problem: Sobald der Nutzer eine Dreifachbindung (Flächen-Teilung) anstrebt, schrammen die Atome zwangsläufig an der Geometrie einer Einfach- oder Doppelbindung vorbei. Das System würde ungewollt "dazwischenfunken".
-
-Deine Idee mit dem **Bestätigungs-Button** löst dieses Problem elegant. Hier ist, wie sich der Ablauf dadurch verändert und wie der Pseudocode für diesen Workflow aussieht.
-
----
 
 ## Der neue UI/UX-Workflow
 
