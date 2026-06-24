@@ -1,5 +1,4 @@
-// GA code für Binde Endpunkt
-
+// --- GA code für Binde Endpunkt ---
 FUNKTION binde_atome(Atom_A, Atom_B, wolken_A_auswahl, wolken_B_auswahl):
 
     // --- SETUP & SORTIERUNG ---
