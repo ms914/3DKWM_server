@@ -56,11 +56,11 @@ FUNKTION binde_atome(Atom_A, Atom_B, wolken_A_auswahl, wolken_B_auswahl):
         FÜGE_HINZU(ziel_B, normalenvektor_A)
         FÜGE_HINZU(start_B, normalenvektor_B)
         
-        kovarianz = MATRIX_MULTIPLIKATION(TRANSIONIERE(start_B), ziel_B)
+        kovarianz = MATRIX_MULTIPLIKATION(TRANSPONIERE(start_B), ziel_B)
         Atom_B.rotation = SVD_ABGLEICH(kovarianz)
 
     WENN anzahl_wolken == 3:
-        kovarianz = MATRIX_MULTIPLIKATION(TRANSIONIERE(start_B), ziel_B)
+        kovarianz = MATRIX_MULTIPLIKATION(TRANSPONIERE(start_B), ziel_B)
         basis_rotation = SVD_ABGLEICH(kovarianz)
 
         // Anti-Umklapp-Schutz (Schnitzel-Flip)
