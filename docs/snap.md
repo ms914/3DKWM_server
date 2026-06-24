@@ -82,3 +82,52 @@ EVENT_HANDLER on_verbinden_button_click():
 
 * **Volle Kontrolle bei Mehrfachbindungen:** Ein Kohlenstoffatom kann sich einem anderen nun "schräg" nähern. Der Nutzer sieht im Frontend z. B.: *„Ah, im Moment erkennt das System nur eine Doppelbindung (2 Linien leuchten). Ich drehe das Atom noch ein Stück... Jetzt leuchten 3 Linien! Perfekt.“* -> **Klick auf Verbinden.**
 * **Kein "Zappeln" (Jittering):** Weil das mathematische Snapping erst nach dem Klick ausgeführt wird, springt das Atom während des Ziehens nicht unkontrolliert zwischen den Geometrien hin und her. Das Bewegen der Atome im Three.js-Viewport bleibt vollkommen flüssig.
+
+```text
+@app.post("/pruefe_und_binde")
+FUNKTION pruefe_und_binde(daten):
+    atom_A = WELT_ZUSTAND[daten.atom_A_id]
+    atom_B = WELT_ZUSTAND[daten.atom_B_id]
+    w_A_ids = daten.wolken_A_ids
+    w_B_ids = daten.wolken_B_ids
+
+    // 1. Serverseitige Validierung (Sicherheitsnetz)
+    globale_A = ROTIERE_MIT_ROTOR(atom_A.rotor, HOLE_VEKTOREN(atom_A, w_A_ids))
+    globale_B = ROTIERE_MIT_ROTOR(atom_B.rotor, HOLE_VEKTOREN(atom_B, w_B_ids))
+    
+    // Berechne reale Distanz basierend auf den aktuellen User-Positionen
+    pos_A_wolke = atom_A.position + globale_A[0]
+    pos_B_wolke = atom_B.position + globale_B[0]
+    
+    WENN ABSTAND(pos_A_wolke, pos_B_wolke) > 0.5:
+        RÜCKGABE {"status": "error", "message": "Zu weit entfernt für eine Bindung."}
+
+    // 2. Mathematisches "Snapping" (Hier zündet deine GA-Logik von vorhin!)
+    // Der Server ignoriert ab hier die ungenaue User-Position und erzwingt das mathematische Ideal
+    anzahl_wolken = LÄNGE(w_A_ids)
+    WENN anzahl_wolken == 1: abstand = 1.25 // Einfachbindung
+    
+    // Achse berechnen: Zeigt exakt vom Zentralatom zur ausgewählten Wolke
+    achse = NORMALISIERE(globale_A[0])
+    
+    // Atom B wird auf exakten Bindungsabstand und Vektor gesetzt
+    atom_B.position = atom_A.position + (achse * abstand)
+    
+    // Rotor für B berechnen, damit die Wolken perfekt Gesicht-zu-Gesicht stehen
+    // (Nutzt den Richtungs-Rotor aus der GA-Logik)
+    start_B = HOLE_VEKTOREN(atom_B, w_B_ids)
+    ziel_B  = INVERTIERE(globale_A)
+    
+    atom_B.rotor = BERECHNE_RICHTUNGS_ROTOR(start_B[0], ziel_B[0])
+
+    // 3. Status updaten
+    FUER i IN w_A_ids: atom_A.wolken[i].elektronen = 3 // Gebunden
+    FUER i IN w_B_ids: atom_B.wolken[i].elektronen = 3
+
+    // 4. Den perfekt ausgerichteten Zustand an den Client zurückgeben
+    RÜCKGABE {
+        "status": "success",
+        "neue_welt": HOLE_GESAMT_ZUSTAND()
+    }
+
+```
