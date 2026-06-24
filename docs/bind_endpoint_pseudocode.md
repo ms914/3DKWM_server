@@ -2,6 +2,12 @@
 
 Dieser Pseudocode dokumentiert die logische Architektur des `/binde`-Endpoints.
 
+1. Setup&Sortierung: Hole lokale Wolkenkoordinaten der angewählten Bindungswolken, sortiere die von B um; prüfe ob berits Bindungen vorliegen denn dann ist A das Zentralatom
+2. Achse bestimmen und B auf dieser Achse rotieren und verschieben: Wenn 1 Bindungswolke, dann ist das die Achse, bei mehreren ist die Achse die Mitte zwischen den Wolken
+3. Atom A rotieren: Atom A wird zur Achse ausgerichtet, indem der Mittelpunkt der Bindungswolken auf die Achse gedreht wird; B Ritation bestimmen
+4. Spezifische Bindungslogik (SVD): je nachdem ob Einfach-, Doppel-, oder Dreifachbindung
+
+
 ```text
 FUNKTION binde_atome(Atom_A, Atom_B, wolken_A_auswahl, wolken_B_auswahl):
 
