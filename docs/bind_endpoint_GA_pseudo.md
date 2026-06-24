@@ -1,3 +1,4 @@
+```text
 // --- GA code für Binde Endpunkt ---
 FUNKTION binde_atome(Atom_A, Atom_B, wolken_A_auswahl, wolken_B_auswahl):
 
@@ -89,4 +90,4 @@ FUNKTION binde_atome(Atom_A, Atom_B, wolken_A_auswahl, wolken_B_auswahl):
         Atom_B.rotor = R_torsion_60 * basis_rotor
 
     RÜCKGABE Atom_A, Atom_B
-    ´´´
+    ```
