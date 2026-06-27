@@ -8,3 +8,4 @@
 * py3Dmol -> three.js
 * voice input (e.g. via gemini)
 * html javascript version
+* clifford, ganja.js
