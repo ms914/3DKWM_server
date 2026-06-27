@@ -35,6 +35,7 @@
 - Übertragung der Logik auf weitere Implementierungen (KWM javascript Module, html-app, python-Frontend)
 
 - # Projekt: Kugelwolkenmodell mit CLI
+- zunächst nur textbasiertes interface, Darstellung als smile, KWM-Liste, Lewis-Liste, smiles History
 - Backend und Frontend in colab
 - py3Dmol und molekuel.mol als Dateninterface und Visualisierungslayer
 - smiles zur Eingabeoptimierung
