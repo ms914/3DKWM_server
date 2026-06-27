@@ -6,3 +6,4 @@
 * plot bohr model
 * mol
 * py3Dmol -> three.js
+* voice input (e.g. via gemini)
