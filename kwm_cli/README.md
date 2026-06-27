@@ -1,3 +1,4 @@
+* KWM minimal viable product using cli
 * server: python fastAPI in colab, local server
 * client: python in colab, Lewis
 * smiles
@@ -9,3 +10,4 @@
 * voice input (e.g. via gemini)
 * html javascript version
 * clifford, ganja.js
+* 
