@@ -18,3 +18,4 @@
 * Schalenmodell, Kugelwolken, Lewis
 * hell dunkel
 * Spracheingabe
+* reset endpoint
