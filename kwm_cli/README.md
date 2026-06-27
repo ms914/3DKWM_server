@@ -1,4 +1,6 @@
 * server: python fastAPI in colab, local server
-* client: python in colab
+* client: python in colab, Lewis
 * smiles
 * smiles_history & py3Dmol step by step binding
+* double adn triple bonds
+* plot bohr model
