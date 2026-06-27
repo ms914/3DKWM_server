@@ -33,4 +33,10 @@
 - Änderungen Server: 
 - Änderungen Client: Orientierung der Atome vor der Bindung frei wählbar (Rotation und Translation), Annäherungsmodul für Bindungen (wählbar per Mausklick oder Verschiebung)
 - Übertragung der Logik auf weitere Implementierungen (KWM javascript Module, html-app, python-Frontend)
+
+- # Projekt: Kugelwolkenmodell mit CLI
+- Backend und Frontend in colab
+- py3Dmol und molekuel.mol als Dateninterface und Visualisierungslayer
+- smiles zur Eingabeoptimierung
+- snapshots um smiles CLI Steuerung darzustellen
 - Elektronen in Wolken, Annäherungs-Animation, Bananen als Bindungswolken, Schalenmodell, Lewis, Verknüpfung mit Avogadro, hell-dunkel, vorgefertigte Moleküle, Import-, Export als mol File, smiles Input, GA-Logik
