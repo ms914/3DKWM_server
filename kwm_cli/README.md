@@ -5,7 +5,7 @@
 * smiles_history & py3Dmol step by step binding
 * double adn triple bonds
 * plot bohr model
-* mol, json, Avogadro, VSEPR, MLIP
+* mol, json, Avogadro, VSEPR, MLIP, ASE, chgnet, MACE, GRACE
 * py3Dmol -> three.js
 * voice input (e.g. via gemini)
 * html javascript version
