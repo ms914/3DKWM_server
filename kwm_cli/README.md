@@ -4,4 +4,5 @@
 * smiles_history & py3Dmol step by step binding
 * double adn triple bonds
 * plot bohr model
+* mol
 * py3Dmol -> three.js
