@@ -11,3 +11,10 @@
 * html javascript version
 * clifford, ganja.js
 * N, P, Cl
+* cli loops several smiles, several mol files
+* Visualization of smiles (smile -> backend -> snapshots -> ipywidgets -> py3dmol)
+* Elektronen in Kugelwolken (mit Bewegung); Bindungswolken Paarung aus Radikalen
+* Animation der Bindung von Atomen zu Molekülen
+* Schalenmodell, Kugelwolken, Lewis
+* hell dunkel
+* Spracheingabe
