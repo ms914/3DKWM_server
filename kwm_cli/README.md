@@ -10,4 +10,4 @@
 * voice input (e.g. via gemini)
 * html javascript version
 * clifford, ganja.js
-* 
+* N, P, Cl
